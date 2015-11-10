@@ -1,0 +1,33 @@
+<html>
+<head>
+  <script src="https://cdn.firebase.com/js/client/2.3.1/firebase.js"></script>
+  <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<style>
+button {
+  height: 200px;
+  width: 200px;
+}
+</style>
+<script>
+$( document ).ready(function() {
+  console.log( "ready!" );
+  var firebaseRef = new Firebase("https://firehippos.firebaseio-demo.com/");
+  $("button").mousedown(function() {
+    var hippo = $(this).text();
+    console.log(hippo + " down");
+    firebaseRef.child(hippo).set("down");
+  }).mouseup(function() {
+    var hippo = $(this).text();
+    console.log($(this).text() + " up");
+    firebaseRef.child(hippo).set("up");
+  });
+});
+</script>
+</head>
+<body>
+  <button>green</button>
+  <button>yellow</button>
+  <button>orange</button>
+  <button>pink</button>
+</body>
+</html>
