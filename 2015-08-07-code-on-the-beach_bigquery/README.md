@@ -1,7 +1,6 @@
 # BigQuery queries as presented at Code on the Beach 2015
 
-I had a blast at [Code on the Beach 2015](), and some of you asked me to share the queries I ran during my
-presentation. Here they are!
+I had a blast at [Code on the Beach 2015](https://www.codeonthebeach.com/), and some of you asked me to share the queries I ran during [my presentation](https://www.codeonthebeach.com/cotb2015/session/3109/what-we-know-what-is-happening-and-what-we-are-made-of-exploring-big-data-on-the-cloud). Here they are!
 
 ## How to use these queries
 
