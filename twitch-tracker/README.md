@@ -8,20 +8,20 @@ Once I record enough data, I'll write it up on my [tech blog](https://little418.
 
 ## Data flow
 
-		+----------------+            +---------------------+        +---------------------+
-		|                |            | Google              |        |                     |
-		| Twitch API     +----------->+ Cloud Function      +------->+ Google Sheet        |
-		|                |            |                     |        |                     |
-		+----------------+            +---------------------+        +---------+-----------+
-																																					 |
-						- Channels                                                     |
-						- Viewers                                                      v
-																																 +---------+-----------+
-																																 | Pretty chart        |
-																																 |                     |
-																																 +---------------------+
+    +----------------+            +---------------------+        +---------------------+
+    |                |            | Google              |        |                     |
+    | Twitch API     +----------->+ Cloud Function      +------->+ Google Sheet        |
+    |                |            |                     |        |                     |
+    +----------------+            +---------------------+        +---------+-----------+
+                                                                           |
+            - Channels                                                     |
+            - Viewers                                                      v
+                                                                 +---------+-----------+
+                                                                 | Pretty chart        |
+                                                                 |                     |
+                                                                 +---------------------+
 
-	
+  
 Diagram made on [asciiflow](http://asciiflow.com/).
 
 ## Todo
