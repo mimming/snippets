@@ -5,7 +5,9 @@
     "firebase": "^4.5.2",
     "firebase-admin": "~5.2.1",
     "firebase-functions": "^0.6.2",
-    "request": "^2.83.0"
+    "lodash": "^4.17.4",
+    "request": "^2.83.0",
+    "request-promise": "^4.2.2"
   },
   "private": true
 }
