@@ -13,19 +13,22 @@
 //  limitations under the License.
 
 const functions = require('firebase-functions');
-const firebase = require('firebase');
+const firebase = require('firebase-admin');
 const rp = require('request-promise');
 const _ = require('lodash');
 
-const firebaseConfig = {
-    apiKey: "AIzaSyBmk5NHsNEri6J1vISirSwsNQvIV3zaC5k",
-    authDomain: "twitch-tracker.firebaseapp.com",
-    databaseURL: "https://twitch-tracker.firebaseio.com",
-    projectId: "twitch-tracker",
-    storageBucket: "twitch-tracker.appspot.com",
-    messagingSenderId: "1026503451140"
-};
-firebase.initializeApp(firebaseConfig);
+// const firebaseConfig = {
+//     apiKey: "AIzaSyBmk5NHsNEri6J1vISirSwsNQvIV3zaC5k",
+//     authDomain: "twitch-tracker.firebaseapp.com",
+//     databaseURL: "https://twitch-tracker.firebaseio.com",
+//     projectId: "twitch-tracker",
+//     storageBucket: "twitch-tracker.appspot.com",
+//     messagingSenderId: "1026503451140"
+// };
+// firebase.initializeApp(firebaseConfig);
+
+firebase.initializeApp(functions.config().firebase);
+
 
 let statsRef = firebase.database().ref('/stats');
 
