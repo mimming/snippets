@@ -1,0 +1,38 @@
+{
+  "hauls" : {
+    "-KuMUIISj-6F9nd0qfOo" : {
+      "gold" : 200,
+      "name" : "Wrecked merchant ship"
+    },
+    "-KuMUIWX1Kl_08CuX8ik" : {
+      "gold" : 4500,
+      "name" : "That boring village"
+    }
+  },
+  "pirates" : {
+    "2N91ZbrJncQbcn8ZM8q97gMUFRE2" : {
+      "eye-patches" : 0,
+      "name" : "Boring Bob",
+      "parrots" : 1,
+      "peg-legs" : 1,
+      "is-leader": false,
+      "gold": 450
+    },
+    "uUZuF1XIa6TAHxKbZ0wREr5ip3A3" : {
+      "eye-patches" : 0,
+      "name" : "Cap'n Jen",
+      "parrots" : 7,
+      "peg-legs" : 0,
+      "is-leader": true,
+      "gold": 10000
+    },
+    "UBCKfiKD8iSRMORZGz3GHatLDCD2" : {
+      "eye-patches" : 1,
+      "name" : "Near Miss Nyx",
+      "parrots" : 1,
+      "peg-legs" : 0,
+      "is-leader": false,
+      "gold": 7
+    }
+  }
+}
