@@ -38,6 +38,7 @@ let servo = null;
 let toggle = null;
 
 board.on("ready", function () {
+  // TODO: extract this into some kind of enum
   let portalOwner = 0;
   let config = {};
 
@@ -57,7 +58,7 @@ board.on("ready", function () {
 
   toggle.on("close", function () {
 
-    if(config['enable-toggle-switch']) {
+    if (config['enable-toggle-switch']) {
       // Set to Enlightened
       portalRef.child('faction').set(1);
     } else {
@@ -67,7 +68,7 @@ board.on("ready", function () {
 
   toggle.on("open", function () {
 
-    if(config['enable-toggle-switch']) {
+    if (config['enable-toggle-switch']) {
       // Set to Resistance
       portalRef.child('faction').set(2);
     } else {
@@ -89,6 +90,7 @@ board.on("ready", function () {
 
     // toggle for animation
     portalOwner = newPortal;
+    repaintWholeStrip();
 
     // only dispense if it's not neutral
     if (newPortal !== 0) {
@@ -96,43 +98,78 @@ board.on("ready", function () {
     }
   }
 
-  // TODO: make this less stupid
-  // Runs animation program -- reading global portalOwner variable
-  function animate_strips() {
+
+  // Run whenever there is a portal state change
+  // still depends on that portalOwner global
+  function repaintWholeStrip() {
     assert.ok(LEGAL_PORTAL_STATES.indexOf(portalOwner) !== -1,
         `illegal state got set somehow ${portalOwner}`);
 
+    const white = [255, 255, 255];
+
+    // White for neutral?
     let baseColor = [255, 255, 255];
+
     if (portalOwner === 1) {
+      // Green for enl
       baseColor = [0, 255, 0];
     } else if (portalOwner === 2) {
+      // Blue for res
       baseColor = [0, 0, 255];
     }
 
     // make it twinkle
     for (let i = 0; i < strip.length; i++) {
-      let difference = Math.floor((Math.random() * 80) + 1);
-      let color = [0, 0, 0];
-      for (let j = 0; j < 3; j++) {
-        if (baseColor[j] === 255) {
-          color[j] = baseColor[j] - difference;
-        } else {
-          color[j] = baseColor[j] + difference;
-        }
+      // Do a white pixel randomly every 20 or so
+      let isWhite = Math.floor((Math.random() * 20)) === 0;
+      if (isWhite) {
+        strip.pixel(i).color(white);
+      } else {
+        // Do a color randomly far from the base color
+        let difference = Math.floor((Math.random() * 80) + 1);
+        let color = [0, 0, 0];
 
-        if (color[j] > 255) {
-          color[j] = 255;
+        for (let j = 0; j < 3; j++) {
+          if (baseColor[j] === 255) {
+            color[j] = baseColor[j] - difference;
+          } else {
+            color[j] = baseColor[j] + difference;
+          }
+
+          // Prevent going beyond limits
+          if (color[j] > 255) {
+            color[j] = 255;
+          }
+          if (color[j] < 0) {
+            color[j] = 0;
+          }
         }
-        if (color[j] < 0) {
-          color[j] = 0;
-        }
+        strip.pixel(i).color(color);
       }
-      strip.pixel(i).color(color);
     }
     strip.show();
+  }
+
+  // TODO: figure out how to add red pixels for attack effects
+  // Runs animation program -- reading global portalOwner variable
+  function animateStrip() {
+    // assert.ok(LEGAL_PORTAL_STATES.indexOf(portalOwner) !== -1,
+    //     `illegal state got set somehow ${portalOwner}`);
+    // let baseColor = [255, 255, 255];
+    // if (portalOwner === 1) {
+    //   baseColor = [0, 255, 0];
+    // } else if (portalOwner === 2) {
+    //   baseColor = [0, 0, 255];
+    // }
+
+    // Don't repaint whole strip each time
+    strip.shift(1, pixel.FORWARD, true);
+    strip.show();
+
+    // TODO: move this down to some control area (like init function)
     setTimeout(function () {
-      animate_strips()
-    }, 1000);
+      animateStrip()
+    }, 100);
   }
 
   // Checks if the faction change really has happened
@@ -153,7 +190,11 @@ board.on("ready", function () {
 
   // Startup stuff!
   strip.on("ready", function () {
-    animate_strips();
+    // Do an initial paint
+    repaintWholeStrip();
+
+    // Start the animation forever-function
+    animateStrip();
 
     // add some Firebase listeners, to get all of the portal data
     portalRef.on('value', (snapshot) => {
