@@ -15,12 +15,11 @@
 const pixel = require("node-pixel");
 const five = require("johnny-five");
 const assert = require('assert');
+const Enum = require('enum');
 
 const firebase = require("firebase-admin");
 const serviceAccount = require("./credentails.json");
 
-// This is a list because I don't know what the future Techthulu (portal API)
-const LEGAL_PORTAL_STATES = [0, 1, 2];
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),
@@ -39,7 +38,13 @@ let toggle = null;
 
 board.on("ready", function () {
   // TODO: extract this into some kind of enum
-  let portalOwner = 0;
+
+  // This is a list because I don't know what the future Techthulu (portal API)
+  const portalFactionEnum = new Enum({'neutral': 0, 'enlightened': 1, 'resistance': 2});
+
+  // Default to neutral
+  let portalOwner = portalFactionEnum.neutral;
+
   let config = {};
 
   servo = new five.Servo({
@@ -60,7 +65,7 @@ board.on("ready", function () {
 
     if (config['enable-toggle-switch']) {
       // Set to Enlightened
-      portalRef.child('faction').set(1);
+      portalRef.child('faction').set(portalFactionEnum.enlightened.value);
     } else {
       console.log("Toggle switch used when disabled by config");
     }
@@ -70,7 +75,7 @@ board.on("ready", function () {
 
     if (config['enable-toggle-switch']) {
       // Set to Resistance
-      portalRef.child('faction').set(2);
+      portalRef.child('faction').set(portalFactionEnum.resistance.value);
     } else {
       console.log("Toggle switch used when disabled by config");
     }
@@ -84,16 +89,16 @@ board.on("ready", function () {
     }, 1200);
   }
 
-  function applyNewOwner(newPortal) {
-    assert.ok(LEGAL_PORTAL_STATES.indexOf(newPortal) !== -1,
-        `switched to illegal state ${newPortal}`);
+  function applyNewOwner(newPortalOwner) {
+    assert.ok(portalFactionEnum.isDefined(newPortalOwner),
+        `switched to illegal state ${newPortalOwner}`);
 
     // toggle for animation
-    portalOwner = newPortal;
+    portalOwner = portalFactionEnum.get(newPortalOwner);
     repaintWholeStrip();
 
     // only dispense if it's not neutral
-    if (newPortal !== 0) {
+    if (portalOwner !== portalFactionEnum.neutral) {
       dispenseCapsule();
     }
   }
@@ -102,18 +107,18 @@ board.on("ready", function () {
   // Run whenever there is a portal state change
   // still depends on that portalOwner global
   function repaintWholeStrip() {
-    assert.ok(LEGAL_PORTAL_STATES.indexOf(portalOwner) !== -1,
-        `illegal state got set somehow ${portalOwner}`);
+    assert.ok(portalFactionEnum.isDefined(portalOwner),
+        `switched to illegal state ${portalOwner}`);
 
     const white = [255, 255, 255];
 
     // White for neutral?
     let baseColor = [255, 255, 255];
 
-    if (portalOwner === 1) {
+    if (portalOwner === portalFactionEnum.enlightened) {
       // Green for enl
       baseColor = [0, 255, 0];
-    } else if (portalOwner === 2) {
+    } else if (portalOwner === portalFactionEnum.resistance) {
       // Blue for res
       baseColor = [0, 0, 255];
     }
@@ -153,14 +158,6 @@ board.on("ready", function () {
   // TODO: figure out how to add red pixels for attack effects
   // Runs animation program -- reading global portalOwner variable
   function animateStrip() {
-    // assert.ok(LEGAL_PORTAL_STATES.indexOf(portalOwner) !== -1,
-    //     `illegal state got set somehow ${portalOwner}`);
-    // let baseColor = [255, 255, 255];
-    // if (portalOwner === 1) {
-    //   baseColor = [0, 255, 0];
-    // } else if (portalOwner === 2) {
-    //   baseColor = [0, 0, 255];
-    // }
 
     // Don't repaint whole strip each time
     strip.shift(1, pixel.FORWARD, true);
@@ -178,7 +175,7 @@ board.on("ready", function () {
 
     // pull out the faction
     const newPortalOwner = portalStatus.faction;
-    assert.ok(LEGAL_PORTAL_STATES.indexOf(newPortalOwner) !== -1,
+    assert.ok(portalFactionEnum.isDefined(newPortalOwner),
         `switched to illegal state ${newPortalOwner}`);
 
     // If there's been a faction change

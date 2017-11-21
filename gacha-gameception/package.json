@@ -5,8 +5,8 @@
   "main": "art.js",
   "dependencies": {
     "assert": "^1.4.1",
+    "enum": "^2.5.0",
     "firebase-admin": "^5.5.0",
-    "https": "^1.0.0",
     "johnny-five": "^0.11.7",
     "node-pixel": "^0.9.3"
   },
