@@ -14,165 +14,165 @@
 
 const pixel = require("node-pixel");
 const five = require("johnny-five");
-const https = require('https');
 const assert = require('assert');
 
+const firebase = require("firebase-admin");
+const serviceAccount = require("./credentails.json");
 
-let board = new five.Board();
+// This is a list because I don't know what the future Techthulu (portal API)
+const LEGAL_PORTAL_STATES = [0, 1, 2];
+
+firebase.initializeApp({
+  credential: firebase.credential.cert(serviceAccount),
+  databaseURL: "https://gachaception.firebaseio.com"
+});
+
+const database = firebase.database();
+const portalRef = database.ref('portal');
+const configRef = database.ref('config');
+
+const board = new five.Board();
+
 let strip = null;
 let servo = null;
-
-let techulu_hostname = "gachasim.firebaseio.com";
-let techulu_suffux = ".json";
+let toggle = null;
 
 board.on("ready", function () {
-    let portalOwner = 'neutral';
-    let portalLevel = 0;
+  let portalOwner = 0;
+  let config = {};
 
-    servo = new five.Servo({
-        pin: 3,
-        type: "continuous"
+  servo = new five.Servo({
+    pin: 3,
+    type: "continuous"
+  });
+
+  strip = new pixel.Strip({
+    board: this,
+    controller: "FIRMATA",
+    strips: [{pin: 4, length: 190},],
+    gamma: 2.8,
+  });
+
+  toggle = new five.Switch(6);
+
+  toggle.on("close", function () {
+
+    if(config['enable-toggle-switch']) {
+      // Set to Enlightened
+      portalRef.child('faction').set(1);
+    } else {
+      console.log("Toggle switch used when disabled by config");
+    }
+  });
+
+  toggle.on("open", function () {
+
+    if(config['enable-toggle-switch']) {
+      // Set to Resistance
+      portalRef.child('faction').set(2);
+    } else {
+      console.log("Toggle switch used when disabled by config");
+    }
+  });
+
+
+  function dispenseCapsule() {
+    servo.cw();
+    setTimeout(function () {
+      servo.stop()
+    }, 1200);
+  }
+
+  function applyNewOwner(newPortal) {
+    assert.ok(LEGAL_PORTAL_STATES.indexOf(newPortal) !== -1,
+        `switched to illegal state ${newPortal}`);
+
+    // toggle for animation
+    portalOwner = newPortal;
+
+    // only dispense if it's not neutral
+    if (newPortal !== 0) {
+      dispenseCapsule();
+    }
+  }
+
+  // TODO: make this less stupid
+  // Runs animation program -- reading global portalOwner variable
+  function animate_strips() {
+    assert.ok(LEGAL_PORTAL_STATES.indexOf(portalOwner) !== -1,
+        `illegal state got set somehow ${portalOwner}`);
+
+    let baseColor = [255, 255, 255];
+    if (portalOwner === 1) {
+      baseColor = [0, 255, 0];
+    } else if (portalOwner === 2) {
+      baseColor = [0, 0, 255];
+    }
+
+    // make it twinkle
+    for (let i = 0; i < strip.length; i++) {
+      let difference = Math.floor((Math.random() * 80) + 1);
+      let color = [0, 0, 0];
+      for (let j = 0; j < 3; j++) {
+        if (baseColor[j] === 255) {
+          color[j] = baseColor[j] - difference;
+        } else {
+          color[j] = baseColor[j] + difference;
+        }
+
+        if (color[j] > 255) {
+          color[j] = 255;
+        }
+        if (color[j] < 0) {
+          color[j] = 0;
+        }
+      }
+      strip.pixel(i).color(color);
+    }
+    strip.show();
+    setTimeout(function () {
+      animate_strips()
+    }, 1000);
+  }
+
+  // Checks if the faction change really has happened
+  // If it has, pass it off to applyNewOwner() function
+  function evalStatus(portalStatus) {
+
+    // pull out the faction
+    const newPortalOwner = portalStatus.faction;
+    assert.ok(LEGAL_PORTAL_STATES.indexOf(newPortalOwner) !== -1,
+        `switched to illegal state ${newPortalOwner}`);
+
+    // If there's been a faction change
+    if (newPortalOwner !== portalOwner) {
+      console.log("faction change to " + newPortalOwner);
+      applyNewOwner(newPortalOwner);
+    }
+  }
+
+  // Startup stuff!
+  strip.on("ready", function () {
+    animate_strips();
+
+    // add some Firebase listeners, to get all of the portal data
+    portalRef.on('value', (snapshot) => {
+      const val = snapshot.val();
+
+      // Sends something like { faction: 1 } over
+      evalStatus(val);
     });
 
-    strip = new pixel.Strip({
-        board: this,
-        controller: "FIRMATA",
-        strips: [{pin: 4, length: 190},],
-        gamma: 2.8,
-    });
+    // Listen for config changes
+    configRef.on('value', (snapshot) => {
+      config = snapshot.val();
+      console.log("Config update gotten");
+      console.log(config);
 
-
-    function dispenseCapsule() {
-        servo.cw();
-        setTimeout(function () {
-            servo.stop()
-        }, 1200);
-    }
-
-    /**
-     * newOwner = ['enl', 'res', 'neutral']
-     * TODO: add timer
-     */
-    portalChange = function (newOwner) {
-        legalStates = ['enl', 'res', 'neutral'];
-        if (legalStates.indexOf(newOwner) != -1 && newOwner != portalOwner) {
-            // toggle for animation
-            portalOwner = newOwner;
-            if (newOwner != 'neutral') {
-                dispenseCapsule();
-            }
-        }
-    };
-
-    function animate() {
-        let baseColor = [255, 255, 255];
-        if (portalOwner == 'enl') {
-            baseColor = [0, 255, 0];
-        } else if (portalOwner == 'res') {
-            baseColor = [0, 0, 255];
-        }
-
-        // make it twinkle
-        for (let i = 0; i < strip.length; i++) {
-
-            let difference = Math.floor((Math.random() * 80) + 1);
-            let color = [0, 0, 0];
-            for (let j = 0; j < 3; j++) {
-                if (baseColor[j] == 255) {
-                    color[j] = baseColor[j] - difference;
-                } else {
-                    color[j] = baseColor[j] + difference;
-                }
-
-                if (color[j] > 255) {
-                    color[j] = 255;
-                }
-                if (color[j] < 0) {
-                    color[j] = 0;
-                }
-            }
-            strip.pixel(i).color(color);
-        }
-        strip.show();
-        setTimeout(function () {
-            animate()
-        }, 1000);
-    }
-
-    function evalStatus(portalStatus) {
-        let portalOwnerMap = {
-            0: "neutral",
-            1: "enl",
-            2: "res",
-        };
-
-        let newPortalOwner = portalStatus.faction;
-        assert.ok(newPortalOwner == 0 || newPortalOwner == 1 || newPortalOwner == 2);
-
-        let newPortalOwnerName = portalOwnerMap[newPortalOwner];
-
-        // Update the portal level
-        assert.ok(portalStatus.hasOwnProperty('resonators'));
-        let sumOfLevels = 0;
-
-        for(let i in portalStatus['resonators']) {
-            let resonator = portalStatus['resonators'][i];
-
-            assert.ok(resonator.hasOwnProperty('level'));
-            assert.ok(Number.isInteger((resonator['level'])));
-
-            sumOfLevels += resonator['level'];
-        }
-        let newPortalLevel = Math.floor(sumOfLevels / 8);
-
-        if(newPortalLevel != portalLevel) {
-            console.log("portal level changed. Now level " + newPortalLevel);
-            portalLevel = newPortalLevel;
-        }
-
-
-        // If there's been a faction change
-        if(newPortalOwnerName != portalOwner) {
-            console.log("faction change to " + newPortalOwnerName);
-            portalChange(newPortalOwnerName);
-        }
-    }
-
-    function fetchStatus() {
-        let statusPath = '/status/' + techulu_suffux;
-        const req = https.request({
-            hostname: techulu_hostname,
-            port: 443,
-            path: statusPath,
-            method: 'GET'
-        }, (res) => {
-            let resBody = '';
-            res.on('data', (d) => {
-                resBody += d;
-            });
-
-            res.on('end', () => {
-                evalStatus(JSON.parse(resBody));
-            });
-        });
-
-        req.on('error', (e) => {
-            console.error(e);
-        });
-        req.end();
-
-
-        setTimeout(function () {
-            fetchStatus();
-
-        }, 500);
-    }
-
-
-    strip.on("ready", function () {
-        animate();
-        fetchStatus();
-    });
+      assert.ok(typeof config['enable-toggle-switch'] === 'boolean',
+          `Config missing required parameter 'enable-toggle-switch' got ${config['enable-toggle-switch']}`)
+    })
+  });
 });
 
 
