@@ -1,4 +1,4 @@
-# Jenny's Code Snippets
+# Jen's Code Snippets
 
 This repository is a place where I keep all of that code that's too big for a gist, but too small to justify it's own repo. Having it here also gives some clarity of licensing :)
 
