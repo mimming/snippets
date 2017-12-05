@@ -1,0 +1,17 @@
+{
+  "rules": {
+    ".read": "true",
+    "admins": {
+      ".write": "auth != null && root.child('admins').hasChild(auth.uid)"
+    },
+    "clues":{
+      ".write": "auth != null && root.child('admins').hasChild(auth.uid)"
+    },
+    "answers":{
+      ".write": "auth != null"
+    },
+    "todos": {
+      ".write": "true"
+    }
+  }
+}
