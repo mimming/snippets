@@ -8,13 +8,8 @@ An art installation for Magnus Reawakens
 
 ## Todo
 
-- Write a management mobile web app with vue.js
-  - faction - slider
-  
-  - sparkle ratio - slider
-  - animation speed - slider
-  - brightness - slider
-  - color variation - slider
+- figure out vuefire for object bindings
+  - Bind the config node in the gachaception firebase RTDB to the fancy sliders
 - Refactoring
   - Top level redesign
   - Consider using a state machine - https://github.com/jakesgordon/javascript-state-machine

@@ -3,3 +3,4 @@ data.csv
 **/node_modules
 .idea
 **.iml
+data/
