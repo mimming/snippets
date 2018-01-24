@@ -16,13 +16,7 @@ board.on("ready", function() {
   board.repl.inject({
     button: button,
     led: led,
-    pot: photoresistor
-  });
-
-  photoresistor.on("data", function() {
-    if(this.value > 600) {
-      console.log("I'm flipped!");
-    }
+    photoresistor: photoresistor
   });
 
   button.on("down", function() {
@@ -33,5 +27,11 @@ board.on("ready", function() {
   button.on("up", function() {
     console.log("up");
 		led.off();
+  });
+
+  photoresistor.on("data", function() {
+    if(this.value > 700) {
+      console.log("I'm upside down!");
+    }
   });
 });

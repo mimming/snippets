@@ -5,7 +5,9 @@
   "main": "index.js",
   "dependencies": {
     "firebase-admin": "^5.7.0",
-    "johnny-five": "^0.13.0"
+    "johnny-five": "^0.13.0",
+    "node-pixel": "^0.9.3",
+    "serialport": "^6.0.4"
   },
   "devDependencies": {},
   "scripts": {
