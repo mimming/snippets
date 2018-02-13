@@ -1,102 +1,124 @@
 const request = require('request');
-//TODO: refactor away
 const https = require('https');
 const parse = require('csv-parse');
 const _ = require('lodash');
 const fs = require('hexo-fs');
 require('should');
+const rp = require('request-promise-native');
+const url = require('url');
 
 
-function fetchCsv(sheetCsvUrl) {
-  https.get(sheetCsvUrl, (res) => {
-    const {statusCode} = res;
-    const contentType = res.headers['content-type'];
+function parseCsvFile(rawCsv) {
+  return new Promise((resolve, reject) => {
+    let entries = [];
 
-    let error;
-    if (statusCode !== 200) {
-      error = new Error('Request Failed.\n' + `Status Code: ${statusCode}`);
-    } else if (!/^text\/csv/.test(contentType)) {
-      error = new Error(`Invalid content-type. Expected text/csv but received ${contentType}`);
-    }
-    if (error) {
-      hexo.log.error(error.message);
-      // consume response data to free up memory
-      res.resume();
-      return;
-    }
+    parse(rawCsv, function (err, parsedSheet) {
+      if (err) {
+        reject(err);
+      }
 
-    res.setEncoding('utf8');
-    let rawData = '';
-    res.on('data', (chunk) => {
-      rawData += chunk;
-    });
-    res.on('end', () => {
-      // All went well? Parse the CSV
-      parseCsv(rawData);
-    });
-  }).on('error', (e) => {
-    hexo.log.error(`Could not fetch sheet CSV: ${e.message}`);
-  });
-}
-
-
-function parseCsv(rawCsv) {
-  parse(rawCsv, {comment: '#'}, function (err, parsedSheet) {
-    // first row is going to be headers
-    const header = parsedSheet.shift();
-
-    parsedSheet.forEach((row) => {
-      // take keys from each field after that, and stuff them into a big ole object
-
-      const rowObject = _.zipObject(header, row);
-
-      // call a generation function, for each post
-      // generatePost(rowObject)
-      //TODO: refactor - only download if not already local image for our slug
-      downloadImages(rowObject);
-
+      // first row is going to be headers
+      const header = parsedSheet.shift();
+      parsedSheet.forEach((row) => {
+        // take keys from each field after that, and stuff them into a big ole object
+        const rowObject = _.zipObject(header, row);
+        entries.push(rowObject);
+      });
+      resolve(entries);
     });
   });
 }
 
-function downloadImages(postObject) {
-  //TODO this method should probably not care about postObject structure, hexo config
-  postObject.should.have.property('imageurl');
-  postObject.should.have.property('slug');
+function checkImageCache(entries) {
+  // TODO: do this with a bunch of promises in parallel
+  return new Promise((resolve, reject) => {
+    entries.forEach((entry) => {
+      entry.should.have.property('imageurl');
+      entry.should.have.property('slug');
+      entry.should.not.have.property('localimage');
 
-  const imagePath = `${hexo.config.source_dir}/images`;
-  const imageFilename = `${imagePath}/${postObject.slug}.jpg`;
+      // TODO: deal with urls that do not parse
+      const imageUrl = url.parse(entry.imageurl);
+      const imageFilename = imageUrl.pathname.split('/').pop();
 
+      // TODO: figure out if this is the safest way to construct local image paths
+      // Construct the local image path
+      const localPath = `${hexo.config.source_dir}/images/${entry.slug}_${imageFilename}`;
+      const relativeUrl = `/images/${entry.slug}_${imageFilename}`;
 
-  //TODO: check to see if it already exists
-  hexo.log.info('Downloading image file', imageFilename);
-
-  request(postObject.imageurl).pipe(fs.createWriteStream(imageFilename));
-
-  const imageRelativeUrl = `/images/${postObject.slug}.jpg`;
-  postObject['localimage'] = imageRelativeUrl;
-  generatePost(postObject);
-
+      // stat each image as a jpg, then as png, see if it exists
+      try {
+        fs.statSync(localPath);
+        // if exists, add localimage to entry
+        entry['localimage'] = relativeUrl;
+      } catch (error) {
+        // Do nothing!  Pass the entry through
+      }
+    });
+    resolve(entries);
+  });
 }
 
-function generatePost(postObject) {
+function downloadImages(entries) {
+  return new Promise((resolve, reject) => {
+    //TODO: download in parallel
+    entries.forEach(entry => {
+      entry.should.have.property('imageurl');
+      entry.should.have.property('slug');
 
-  // Assertions about the post objects
-  postObject.should.have.property('title');
-  postObject.should.have.property('slug');
-  postObject.should.have.property('localimage');
+      if (entry.localimage) {
+        hexo.log.info(`${entry.slug} localimage cached, skipping`);
+      } else {
+        hexo.log.info(`${entry.slug} -- downloading image`);
 
+        // TODO: this is copy/pasted from checkImageCache, maybe move to function
+        // TODO: deal with urls that do not parse
+        const imageUrl = url.parse(entry.imageurl);
+        const imageFilename = imageUrl.pathname.split('/').pop();
+        const localPath = `${hexo.config.source_dir}/images/${entry.slug}_${imageFilename}`;
+        const relativeUrl = `/images/${entry.slug}_${imageFilename}`;
 
-  // TODO make sure I have all the stuff I need to make a post
-  hexo.post.create(postObject, true);
-  hexo.log.info(`Created a post with slug ${postObject.slug}`);
+        request(entry.imageurl).pipe(fs.createWriteStream(localPath));
 
+        entry['localimage'] = relativeUrl;
+      }
+    });
+    resolve(entries);
+  });
 }
+
+function generatePosts(entries) {
+  return new Promise((resolve, reject) => {
+    entries.forEach(entry => {
+      // Assertions about the post objects
+      entry.should.have.property('slug');
+      entry.should.have.property('localimage');
+
+      // TODO make sure I have all the stuff I need to make a post
+      hexo.post.create(entry, true);
+      hexo.log.info(`Created a post with slug ${entry.slug}`);
+    });
+  });
+}
+
 
 hexo.extend.migrator.register('google-sheet', function (args) {
-  // slurp down that csv file
+  //TODO move this to a config
   const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT5a7YTs_8AuqbAqF87vdDzUVkN9SVcgkC5qEk-Scn_fd8hKSKwDD_k70z9Phhtx-pVxdtxrDnvwJwe/pub?output=csv';
 
-  fetchCsv(sheetCsvUrl);
+  // fetch csv file
+  return rp(sheetCsvUrl)
+  // parse the CSV
+      .then(respBody => parseCsvFile(respBody))
+      // check image cache, set localImage values for already cached images
+      .then(entries => checkImageCache(entries))
+      // download all of the images that don't yet have a localImage
+      .then(entries => downloadImages(entries))
+      // generate the posts
+      .then(entries => generatePosts(entries))
+      .catch(error => {
+        console.log("generation failed because...");
+        console.log(error);
+      });
 });
 

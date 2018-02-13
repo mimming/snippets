@@ -18,6 +18,7 @@
     "hexo-server": "^0.2.0",
     "lodash": "^4.17.4",
     "request": "^2.83.0",
+    "request-promise-native": "^1.0.5",
     "should": "^13.1.3"
   }
 }
