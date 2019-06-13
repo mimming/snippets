@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% comment %}
+# Copyright 2019 Google, Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+{% endcomment %}
+
+{% block content %}
+    <div class="jumbotron">
+        <h1 class="display-4">Add a Cat to That!</h1>
+        <p class="lead">Make boring photos way better by harnessing the power of artificial intelligence, machine
+            learning, cloud computing, and cats.</p>
+
+        <hr class="my-4"/>
+        <form method="POST" enctype="multipart/form-data" action="/improve">
+            <div class="form-group">
+                <label for="image-to-cat">Select a boring photo</label>
+                <input name="image-to-cat" type="file" class="form-control-file" id="image-to-cat"
+                       aria-describedby="upload-help">
+                <small id="upload-help" class="form-text text-muted">We know your photo needs a little help.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="caption">Description</label>
+                <input name="caption" type="text" class="form-control" id="caption" aria-describedby="caption-help">
+                <small id="caption-help" class="form-text text-muted">Describe your image</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload and Improve</button>
+
+        </form>
+    </div>
+
+{% endblock %}
