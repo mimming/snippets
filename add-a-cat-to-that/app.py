@@ -14,9 +14,13 @@
 
 import os
 import random
-from flask import Flask, request, render_template, redirect, url_for
+import string
+from flask import Flask, request, render_template, redirect, url_for, session, jsonify, json
 from PIL import Image
+import webauthn
 
+
+# Our not-really-a-database
 admin_users = [
     {
         'email':'admin@example.com',
@@ -24,8 +28,12 @@ admin_users = [
     }
 ]
 
-
 app = Flask(__name__)
+
+# Set the secret key used for sessions and stuff.  Please don't use it like this in production.
+app.secret_key = b'correct-horse-battery-staple'
+
+# Random seed for the cat selection, and security key challenge generation
 random.seed(os.urandom(16))
 
 @app.route('/improve', methods=['POST'])
@@ -49,7 +57,6 @@ def add_a_cat_post():
 
     img.paste(img_cat, (0, img.height - img_cat.height), mask=img_cat)
 
-    # img = img.convert('RGB')
     img.save(bip)
 
     return render_template('better.html', caption=c, img_path=bip)
@@ -72,6 +79,7 @@ def admin_login():
 
     for admin_user in admin_users:
         if email == admin_user['email'] and password == admin_user['password']:
+            session['email'] = email
             return redirect(url_for('admin_settings'))
 
     # Fall through to user not found
@@ -81,9 +89,32 @@ def admin_login():
 
 @app.route('/admin-settings')
 def admin_settings():
-    return render_template('admin-settings.html')
+    if 'email' in session:
+        # Generate a credential options, assuming that they will want to add a new security key
+        challenge = generate_random_string(32)
+        rp_name = 'localhost'
+        rp_id = 'localhost'
+        ukey = generate_random_string(20)
+        username = session['email']
+        display_name = session['email']
+        icon_url = 'https://example.com'
 
+        make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
+            challenge, rp_name, rp_id, ukey, username, display_name,
+            icon_url)
+        reg_dict = make_credential_options.registration_dict
+        json_reg_dict = json.dumps(reg_dict)
+
+        return render_template('admin-settings.html', email=session['email'], make_credential_options=json_reg_dict)
+    else:
+        return redirect(url_for('admin_login'))
+
+
+def generate_random_string(string_length):
+    return ''.join([
+        random.SystemRandom().choice(string.ascii_letters + string.digits) for i in range(string_length)
+    ])
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    app.run(debug=True, host='localhost', port=int(os.environ.get('PORT', 5000)))
 

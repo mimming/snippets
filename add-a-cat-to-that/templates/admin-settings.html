@@ -32,12 +32,24 @@
             background-color: #f5f5f5;
         }
 
+        h1 {
+            padding-top: 20px;
+        }
+
+        ul {
+            text-align: left;
+        }
+
         .form-settings-update {
             width: 100%;
             max-width: 330px;
             margin: auto;
-            padding: 200px 15px 15px;
+            padding: 15px;
             font-weight: 400;
+        }
+
+        .form-settings-update:first-child {
+            padding: 200px 15px 15px;
         }
 
         .form-settings-update .form-control {
@@ -63,10 +75,11 @@
             border-top-left-radius: 0;
             border-top-right-radius: 0;
         }
+
     </style>
     <div class="text-center">
 
-        <form class="form-settings-update" method="post" action="/admin-settings-update">
+        <form class="form-settings-update form-first" method="post" action="/admin-settings-update">
             {% if error %}
                 <div class="alert alert-danger" role="alert">
                     {{ error }}
@@ -75,19 +88,73 @@
 
             <h1 class="h3 mb-3 font-weight-normal">Update your email or password:</h1>
             <label for="inputEmail" class="sr-only">Email address</label>
-            <input name="email" type="email" id="inputEmail" class="form-control" placeholder="Email address" required
-                   autofocus>
+            <input name="email" type="email" id="inputEmail" class="form-control" value="{{ email }}"
+                   placeholder="Email address" required autofocus>
+
             <label for="inputPassword" class="sr-only">New Password</label>
             <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
             <button class="btn btn-lg btn-primary btn-block" type="submit">Save</button>
         </form>
 
 
-        <form class="form-settings-update" method="post" action="/register-security-key">
+        <form class="form-settings-update">
             <h1 class="h3 mb-3 font-weight-normal">Or do something else:</h1>
-            <button class="btn btn-lg btn-primary btn-block" type="submit">Register a Security Key</button>
+            <button id="register-security-key" class="btn btn-lg btn-primary btn-block" type="button">Register a
+                Security Key
+            </button>
+            <h1 class="h3 mb-3 font-weight-normal">Known security keys:</h1>
+            <ul>
+                <li>key 1</li>
+                <li>key 2</li>
+            </ul>
         </form>
 
     </div>
+
+    <script>
+        const make_credential_options = {{ make_credential_options | safe }};
+        const regSecurityKeyStep1 = function () {
+            const publicKeyCredentialCreateOptions = transformCredentialCreateOptions(make_credential_options);
+
+            return navigator.credentials.create({'publicKey': publicKeyCredentialCreateOptions})
+                .then((result) => {
+                    {#newCredentialInfo = publicKeyCredentialToJSON(newCredentialInfo);#}
+                    console.log(result);
+                    // post it back to the server?
+
+                })
+                .catch((error) => {
+                    console.log('uhoh', error);
+                });
+        };
+
+        const regButton = document.getElementById("register-security-key");
+        regButton.addEventListener('click', regSecurityKeyStep1)
+
+
+        // TODO: inline this because ugh
+        /**
+         * Transforms items in the credentialCreateOptions generated on the server
+         * into byte arrays expected by the navigator.credentials.create() call
+         * @param {Object} credentialCreateOptionsFromServer
+         */
+        const transformCredentialCreateOptions = (credentialCreateOptionsFromServer) => {
+            let {challenge, user} = credentialCreateOptionsFromServer;
+            user.id = Uint8Array.from(
+                atob(credentialCreateOptionsFromServer.user.id), c => c.charCodeAt(0));
+
+            challenge = Uint8Array.from(
+                atob(credentialCreateOptionsFromServer.challenge), c => c.charCodeAt(0));
+
+            const transformedCredentialCreateOptions = Object.assign(
+                {}, credentialCreateOptionsFromServer,
+                {challenge, user});
+
+            return transformedCredentialCreateOptions;
+        }
+
+
+    </script>
+
 
 {% endblock %}
