@@ -98,10 +98,12 @@ def admin_settings():
         username = session['email']
         display_name = session['email']
         icon_url = 'https://example.com'
+        timeout = 60000
+        attestation = 'none'
 
         make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
             challenge, rp_name, rp_id, ukey, username, display_name,
-            icon_url)
+            icon_url, timeout, attestation)
         reg_dict = make_credential_options.registration_dict
         json_reg_dict = json.dumps(reg_dict)
 
