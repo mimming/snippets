@@ -21,3 +21,4 @@ venv**
 __pycache__
 image-to-cat**
 static/better-image**
+static/bower_components/**

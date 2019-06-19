@@ -115,27 +115,40 @@
 
     </div>
 
+    <script src="/static/bower_components/base64-js/base64js.min.js"></script>
     <script>
+        // Use the template to render the credential_options given by server
         const jsonCredentialOptions = {{ credential_options | safe }};
         console.log("JSON Credential Options", jsonCredentialOptions);
 
-        const regSecurityKeyStep1 = function () {
+        const registerSecurityKey = async function () {
             // Convert to the format expected by WebAuthn
-            const encodedCredentialOptions = binaryEncodeCredentialOptions(jsonCredentialOptions);
+            const encodedCredentialOptions = encodeCredentialOptions(jsonCredentialOptions);
 
-            return navigator.credentials.create({'publicKey': encodedCredentialOptions})
-                .then((result) => {
-                    console.log(result);
-                    // TODO post it back to the server, so server can finish registration
+            const credentials = await navigator.credentials.create({'publicKey': encodedCredentialOptions});
 
-                })
-                .catch((error) => {
-                    console.log('Something went terribly wrong', error);
+            console.log("Credentials from the security key", credentials);
+
+            // Convert the credentials into something we can transmit back
+            const assertion = encodeNewAssertionForServer(credentials);
+
+            console.log("Prepped for sending to server", assertion);
+
+            assertionValidationResponse = await fetch('/finish_security_key_reg',
+                {
+                    method: 'POST',
+                    body: assertion,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
+
+            // Didn't crash yet?  Reload to see the new key listed
+            window.location.reload();
         };
 
         const regButton = document.getElementById("register-security-key");
-        regButton.addEventListener('click', regSecurityKeyStep1);
+        regButton.addEventListener('click', registerSecurityKey);
 
 
         /**
@@ -145,7 +158,7 @@
          * into byte arrays expected by the navigator.credentials.create() call
          * @param {Object} credentialCreateOptionsFromServer
          */
-        const binaryEncodeCredentialOptions = (credentialCreateOptionsFromServer) => {
+        const encodeCredentialOptions = (credentialCreateOptionsFromServer) => {
             let {challenge, user} = credentialCreateOptionsFromServer;
             user.id = Uint8Array.from(
                 atob(credentialCreateOptionsFromServer.user.id), c => c.charCodeAt(0));
@@ -158,7 +171,40 @@
                 {challenge, user});
 
             return transformedCredentialCreateOptions;
+        };
+
+        /**
+         * Taken from Duo Labs' sample code for the Python WebAuthn client library
+         *
+         * Transforms the binary data in the credential into base64 strings
+         * for posting to the server.
+         * @param {PublicKeyCredential} newAssertion
+         */
+        const encodeNewAssertionForServer = (newAssertion) => {
+            const attObj = new Uint8Array(newAssertion.response.attestationObject);
+            const clientDataJSON = new Uint8Array(newAssertion.response.clientDataJSON);
+            const rawId = new Uint8Array(newAssertion.rawId);
+
+            const registrationClientExtensions = newAssertion.getClientExtensionResults();
+
+            return {
+                id: newAssertion.id,
+                rawId: b64enc(rawId),
+                type: newAssertion.type,
+                attObj: b64enc(attObj),
+                clientData: b64enc(clientDataJSON),
+                registrationClientExtensions: JSON.stringify(registrationClientExtensions)
+            };
+        };
+
+        function b64enc(buf) {
+            return base64js.fromByteArray(buf)
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=/g, "");
         }
+
+
 
 
     </script>

@@ -127,12 +127,33 @@ def admin_settings():
         if 'known_keys' in current_user:
             known_keys = current_user['known_keys']
 
+        # Save the challenge to the session, for recall when we verify
+        session['challenge'] = challenge
+
         return render_template('admin-settings.html', email=session['email'], credential_options=json_credential_options, known_keys=known_keys)
 
     else:
         return redirect(url_for('admin_login'))
 
 
+@app.route('/finish_security_key_reg', methods=['POST'])
+def finish_security_key_reg():
+    # Verify logged in state
+    if 'email' in session and session['email'] in admin_users:
+        current_user = admin_users[session['email']]
+
+        # TODO: Verify credential
+
+        # Save the key to the admin user database
+        if not 'known_keys' in current_user:
+            current_user['known_keys'] = [{'nickname': 'my favorite key'}]
+        else:
+            current_user['known_keys'].append({'nickname': 'my favorite key'})
+
+    return "Success!"
+
+
+# Copied from Duo Labs' example code for their WebAuthn library
 def generate_random_string(string_length):
     return ''.join([
         random.SystemRandom().choice(string.ascii_letters + string.digits) for i in range(string_length)
