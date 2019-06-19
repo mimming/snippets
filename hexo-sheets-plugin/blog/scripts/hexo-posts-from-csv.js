@@ -1,12 +1,10 @@
 const request = require('request');
-const https = require('https');
 const parse = require('csv-parse');
 const _ = require('lodash');
 const fs = require('hexo-fs');
-require('should');
+const should = require('should');
 const rp = require('request-promise-native');
 const url = require('url');
-
 
 function parseCsvFile(rawCsv) {
   return new Promise((resolve, reject) => {
@@ -103,8 +101,11 @@ function generatePosts(entries) {
 
 
 hexo.extend.migrator.register('google-sheet', function (args) {
-  //TODO move this to a config
-  const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT5a7YTs_8AuqbAqF87vdDzUVkN9SVcgkC5qEk-Scn_fd8hKSKwDD_k70z9Phhtx-pVxdtxrDnvwJwe/pub?output=csv';
+
+  hexo.config.should.have.property('google_sheet_migrator');
+  hexo.config.google_sheet_migrator.should.have.property('sheet_csv_url');
+
+  const sheetCsvUrl = hexo.config.google_sheet_migrator.sheet_csv_url;
 
   // fetch csv file
   return rp(sheetCsvUrl)

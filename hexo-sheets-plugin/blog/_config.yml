@@ -78,3 +78,7 @@ theme: landscape
 ## Docs: https://hexo.io/docs/deployment.html
 deploy:
   type:
+
+
+google_sheet_migrator:
+  sheet_csv_url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT5a7YTs_8AuqbAqF87vdDzUVkN9SVcgkC5qEk-Scn_fd8hKSKwDD_k70z9Phhtx-pVxdtxrDnvwJwe/pub?output=csv"
