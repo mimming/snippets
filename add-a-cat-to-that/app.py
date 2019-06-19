@@ -21,12 +21,13 @@ import webauthn
 
 
 # Our not-really-a-database
-admin_users = [
-    {
-        'email':'admin@example.com',
-        'password':'1234'
+admin_users = {
+    'admin@example.com': {
+        'id': '42',
+        'email': 'admin@example.com',
+        'password': '1234'
     }
-]
+}
 
 app = Flask(__name__)
 
@@ -77,8 +78,8 @@ def admin_login():
     email = request.form['email']
     password = request.form['password']
 
-    for admin_user in admin_users:
-        if email == admin_user['email'] and password == admin_user['password']:
+    if email in admin_users:
+        if password == admin_users[email]['password']:
             session['email'] = email
             return redirect(url_for('admin_settings'))
 
@@ -89,25 +90,45 @@ def admin_login():
 
 @app.route('/admin-settings')
 def admin_settings():
-    if 'email' in session:
-        # Generate a credential options, assuming that they will want to add a new security key
+    # Verify logged in state
+    if 'email' in session and session['email'] in admin_users:
+        current_user = admin_users[session['email']]
+
+        # Select WebAuthn required values
         challenge = generate_random_string(32)
-        rp_name = 'localhost'
+        rp_name = 'Add a Cat to That'
         rp_id = 'localhost'
-        ukey = generate_random_string(20)
-        username = session['email']
-        display_name = session['email']
-        icon_url = 'https://example.com'
+
+        user_id = current_user['id']
+        username = current_user['email']
+        display_name = current_user['email']
+        icon_url = ''
+
         timeout = 60000
         attestation = 'none'
 
-        make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
-            challenge, rp_name, rp_id, ukey, username, display_name,
-            icon_url, timeout, attestation)
-        reg_dict = make_credential_options.registration_dict
-        json_reg_dict = json.dumps(reg_dict)
+        # Make credentials_options for our values
+        credential_options = webauthn.WebAuthnMakeCredentialOptions(
+            challenge,
+            rp_name,
+            rp_id,
+            user_id,
+            username,
+            display_name,
+            icon_url,
+            timeout,
+            attestation)
 
-        return render_template('admin-settings.html', email=session['email'], make_credential_options=json_reg_dict)
+        # JSON encode it for use in JavaScript land
+        json_credential_options = json.dumps(credential_options.registration_dict)
+
+        # Get a list of known security keys for this user
+        known_keys = {}
+        if 'known_keys' in current_user:
+            known_keys = current_user['known_keys']
+
+        return render_template('admin-settings.html', email=session['email'], credential_options=json_credential_options, known_keys=known_keys)
+
     else:
         return redirect(url_for('admin_login'))
 

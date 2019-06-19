@@ -79,66 +79,73 @@
     </style>
     <div class="text-center">
 
-        <form class="form-settings-update form-first" method="post" action="/admin-settings-update">
-            {% if error %}
-                <div class="alert alert-danger" role="alert">
-                    {{ error }}
-                </div>
-            {% endif %}
+<!--        <form class="form-settings-update form-first" method="post" action="/admin-settings-update">-->
+<!--            {% if error %}-->
+<!--                <div class="alert alert-danger" role="alert">-->
+<!--                    {{ error }}-->
+<!--                </div>-->
+<!--            {% endif %}-->
 
-            <h1 class="h3 mb-3 font-weight-normal">Update your email or password:</h1>
-            <label for="inputEmail" class="sr-only">Email address</label>
-            <input name="email" type="email" id="inputEmail" class="form-control" value="{{ email }}"
-                   placeholder="Email address" required autofocus>
+<!--            <h1 class="h3 mb-3 font-weight-normal">Update your email or password:</h1>-->
+<!--            <label for="inputEmail" class="sr-only">Email address</label>-->
+<!--            <input name="email" type="email" id="inputEmail" class="form-control" value="{{ email }}"-->
+<!--                   placeholder="Email address" required autofocus>-->
 
-            <label for="inputPassword" class="sr-only">New Password</label>
-            <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
-            <button class="btn btn-lg btn-primary btn-block" type="submit">Save</button>
-        </form>
+<!--            <label for="inputPassword" class="sr-only">New Password</label>-->
+<!--            <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>-->
+<!--            <button class="btn btn-lg btn-primary btn-block" type="submit">Save</button>-->
+<!--        </form>-->
 
 
         <form class="form-settings-update">
-            <h1 class="h3 mb-3 font-weight-normal">Or do something else:</h1>
+            <h1 class="h3 mb-3 font-weight-normal">Register a security key:</h1>
             <button id="register-security-key" class="btn btn-lg btn-primary btn-block" type="button">Register a
                 Security Key
             </button>
+            {% if known_keys %}
             <h1 class="h3 mb-3 font-weight-normal">Known security keys:</h1>
             <ul>
-                <li>key 1</li>
-                <li>key 2</li>
+                {% for key in known_keys %}
+                <li>{{ key.nickname }}</li>
+                {% endfor %}
+
             </ul>
+            {% endif %}
         </form>
 
     </div>
 
     <script>
-        const make_credential_options = {{ make_credential_options | safe }};
-        const regSecurityKeyStep1 = function () {
-            const publicKeyCredentialCreateOptions = transformCredentialCreateOptions(make_credential_options);
+        const jsonCredentialOptions = {{ credential_options | safe }};
+        console.log("JSON Credential Options", jsonCredentialOptions);
 
-            return navigator.credentials.create({'publicKey': publicKeyCredentialCreateOptions})
+        const regSecurityKeyStep1 = function () {
+            // Convert to the format expected by WebAuthn
+            const encodedCredentialOptions = binaryEncodeCredentialOptions(jsonCredentialOptions);
+
+            return navigator.credentials.create({'publicKey': encodedCredentialOptions})
                 .then((result) => {
-                    {#newCredentialInfo = publicKeyCredentialToJSON(newCredentialInfo);#}
                     console.log(result);
                     // TODO post it back to the server, so server can finish registration
 
                 })
                 .catch((error) => {
-                    console.log('uhoh', error);
+                    console.log('Something went terribly wrong', error);
                 });
         };
 
         const regButton = document.getElementById("register-security-key");
-        regButton.addEventListener('click', regSecurityKeyStep1)
+        regButton.addEventListener('click', regSecurityKeyStep1);
 
 
-        // TODO: inline this because ugh
         /**
+         * Taken from Duo Labs' sample code for the Python WebAuthn client library
+         *
          * Transforms items in the credentialCreateOptions generated on the server
          * into byte arrays expected by the navigator.credentials.create() call
          * @param {Object} credentialCreateOptionsFromServer
          */
-        const transformCredentialCreateOptions = (credentialCreateOptionsFromServer) => {
+        const binaryEncodeCredentialOptions = (credentialCreateOptionsFromServer) => {
             let {challenge, user} = credentialCreateOptionsFromServer;
             user.id = Uint8Array.from(
                 atob(credentialCreateOptionsFromServer.user.id), c => c.charCodeAt(0));
