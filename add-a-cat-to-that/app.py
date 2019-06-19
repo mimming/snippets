@@ -34,6 +34,9 @@ app = Flask(__name__)
 # Set the secret key used for sessions and stuff.  Please don't use it like this in production.
 app.secret_key = b'correct-horse-battery-staple'
 
+RP_ID = 'localhost'
+ORIGIN = 'http://localhost:5000'
+
 # Random seed for the cat selection, and security key challenge generation
 random.seed(os.urandom(16))
 
@@ -97,7 +100,7 @@ def admin_settings():
         # Select WebAuthn required values
         challenge = generate_random_string(32)
         rp_name = 'Add a Cat to That'
-        rp_id = 'localhost'
+        rp_id = RP_ID  # localhost
 
         user_id = current_user['id']
         username = current_user['email']
@@ -142,13 +145,37 @@ def finish_security_key_reg():
     if 'email' in session and session['email'] in admin_users:
         current_user = admin_users[session['email']]
 
-        # TODO: Verify credential
+        # Prep options for credential verification
+        challenge = session['challenge']
+        username = current_user['email']
+        display_name = current_user['email']
+        ukey = current_user['id']
+
+        registration_response = request.form
+
+        trusted_attestation_cert_required = False
+        self_attestation_permitted = True
+        none_attestation_permitted = True
+
+        webauthn_registration_response = webauthn.WebAuthnRegistrationResponse(
+            RP_ID,   # localhost
+            ORIGIN,  # http://localhost:5000
+            registration_response,
+            challenge,
+            './',
+            trusted_attestation_cert_required,
+            self_attestation_permitted,
+            none_attestation_permitted)
+
+        webauthn_credential = webauthn_registration_response.verify()
 
         # Save the key to the admin user database
         if not 'known_keys' in current_user:
-            current_user['known_keys'] = [{'nickname': 'my favorite key'}]
+            current_user['known_keys'] = [vars(webauthn_credential)]
+            current_user['known_keys'][0]['nickname'] = request.form['key-nickname']
         else:
-            current_user['known_keys'].append({'nickname': 'my favorite key'})
+            current_user['known_keys'].append(vars(webauthn_credential))
+            current_user['known_keys'][-1]['nickname'] = request.form['key-nickname']
 
     return "Success!"
 

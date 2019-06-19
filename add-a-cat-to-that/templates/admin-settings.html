@@ -99,6 +99,7 @@
 
         <form class="form-settings-update">
             <h1 class="h3 mb-3 font-weight-normal">Register a security key:</h1>
+            <input class="form-control"  type="text" id="new-key-nickname" value="My awesome key"/>
             <button id="register-security-key" class="btn btn-lg btn-primary btn-block" type="button">Register a
                 Security Key
             </button>
@@ -125,26 +126,32 @@
             // Convert to the format expected by WebAuthn
             const encodedCredentialOptions = encodeCredentialOptions(jsonCredentialOptions);
 
-            const credentials = await navigator.credentials.create({'publicKey': encodedCredentialOptions});
+            const credential = await navigator.credentials.create({'publicKey': encodedCredentialOptions});
 
-            console.log("Credentials from the security key", credentials);
+            console.log("Credentials from the security key", credential);
 
             // Convert the credentials into something we can transmit back
-            const assertion = encodeNewAssertionForServer(credentials);
+            const encodedCredential = encodeNewAssertionForServer(credential);
 
-            console.log("Prepped for sending to server", assertion);
+            // Add the nickname in from the form
+            encodedCredential['key-nickname'] = document.getElementById('new-key-nickname').value;
+
+            console.log("Prepped for sending to server", encodedCredential);
+
+            // Convert to form data for easier processing server side
+            const formDataCredential = new FormData();
+            Object.entries(encodedCredential).forEach(([key, value]) => {
+                formDataCredential.set(key, value);
+            });
 
             assertionValidationResponse = await fetch('/finish_security_key_reg',
                 {
                     method: 'POST',
-                    body: assertion,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    body: formDataCredential,
                 });
 
             // Didn't crash yet?  Reload to see the new key listed
-            window.location.reload();
+            // window.location.reload();
         };
 
         const regButton = document.getElementById("register-security-key");
