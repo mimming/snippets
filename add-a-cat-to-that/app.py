@@ -81,15 +81,103 @@ def admin_login():
     email = request.form['email']
     password = request.form['password']
 
+    # Check email
     if email in admin_users:
+        # Check password
         if password == admin_users[email]['password']:
-            session['email'] = email
-            return redirect(url_for('admin_settings'))
+            # Check for known WebAuthn security keys
+            if 'known_keys' in admin_users[email]:
+                session['email'] = email
+
+                return redirect(url_for('request_security_key'))
+
+            # No security keys, password is enough
+            else:
+                session['email'] = email
+                return redirect(url_for('admin_settings'))
 
     # Fall through to user not found
     error = "The email " + email + " was not found.  Please keep guessing emails that might work."
 
     return render_template('admin-login-form.html', error=error)
+
+@app.route('/request-security-key')
+def request_security_key():
+    email = session['email']
+
+    current_user = admin_users[email]
+
+    challenge = generate_random_string(32)
+    session['challenge'] = challenge
+
+    webauthn_user = webauthn.WebAuthnUser(
+        current_user['id'],     # user ID
+        current_user['email'],  # username
+        current_user['email'],  # user display name
+        '',  # icon url
+        current_user['known_keys'][0]['credential_id'],
+        current_user['known_keys'][0]['public_key'],
+        current_user['known_keys'][0]['sign_count'],
+        RP_ID)
+
+    webauthn_assertion_options = webauthn.WebAuthnAssertionOptions(
+        webauthn_user, challenge)
+
+    json_assertion_options = json.dumps(webauthn_assertion_options.assertion_dict)
+    # for some reason the allowCredentials ID is a string of bytes.  No bueno for json.dumps
+
+
+    return render_template('request-security-key.html', assertion_options=json_assertion_options)
+
+@app.route('/verify-security-key-result', methods=['POST'])
+def verify_security_key_result():
+    email = session['email']
+
+    challenge = session.get('challenge')
+    assertion_response = request.form
+    credential_id = assertion_response.get('id')
+
+    # Find the user, and verify their credential is correct
+    user = admin_users[email]
+    known_keys = admin_users[email]['known_keys']
+
+    this_key = None
+    for key in known_keys:
+        if credential_id == key['credential_id']:
+            this_key = key
+
+    if this_key is None:
+        return "This key is not recognized for this user.  Try again please."
+
+
+    # Will raise an error if something isn't correct
+    webauthn_user = webauthn.WebAuthnUser(
+        user['id'],
+        user['email'], # username
+        user['email'], # display name
+        '', # icon url
+        this_key['credential_id'], # maybe issue here because of encoding string vs bytes?
+        this_key['public_key'], # maybe issue here because of encoding string vs bytes?
+        this_key['sign_count'],
+        this_key['rp_id']
+    )
+
+    # Will raise an error if something isn't correct
+    webauthn_assertion_response = webauthn.WebAuthnAssertionResponse(
+        webauthn_user,
+        assertion_response,
+        challenge,
+        ORIGIN,
+        False)  # User Verification
+
+
+    sign_count = webauthn_assertion_response.verify()
+
+    # Update counter.
+    this_key['sign_count'] = sign_count
+
+    return redirect(url_for('admin_settings'))
+
 
 @app.route('/admin-settings')
 def admin_settings():
@@ -168,6 +256,10 @@ def finish_security_key_reg():
             none_attestation_permitted)
 
         webauthn_credential = webauthn_registration_response.verify()
+
+        # Prepare webauthn_credential for saving in the user 'database'
+        clean_webauthn_credential = vars(webauthn_credential)
+        clean_webauthn_credential['credential_id'] = str(clean_webauthn_credential['credential_id'])[2:-1] #TODO: Fix this ugly hack
 
         # Save the key to the admin user database
         if not 'known_keys' in current_user:
